@@ -1,6 +1,8 @@
 DoulistForker
 =============
 
+GM插件
+
 给豆列增加fork功能
 
 ##功能
