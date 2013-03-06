@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name        test
 // @namespace   test
-// @include     http://movie.douban.com/*
+// @include     http://movie.douban.com/doulist/*
+// @include     http://movie.douban.com/subject/*
 // @version     1
 // @grant GM_getValue
 // @grant GM_setValue
@@ -11,26 +12,37 @@
 // @grant GM_openInTab
 // @grant GM_registerMenuCommand
 // ==/UserScript==
-/*
-TODO
-0. 整理代码
-1. 为fork按钮添加样式
-2. fork增加process提示
-3. 在电影页面增加快速添加到豆列功能
-4. 自己的豆列不能fork，已经fork的豆列不能fork
-5. userscript include 页面
-6. 给fork from 添加链接
-7. 给除了电影豆列以外的其他豆列增加fork功能
-*/
 
-GM_addStyle('#fork_btn \
-	{ \
+// TODO
+// 1. 为fork按钮添加样式 done
+// 2. fork增加process提示 done
+// 3. 在电影页面增加快速添加到豆列功能
+// 4. 自己的豆列不能fork，已经fork的豆列不能fork
+// 5. userscript include 页面
+// 6. 给fork from 添加链接 done
+// 7. 存储已fork的豆列
+
+
+
+/* Style */
+
+GM_addStyle('#fork_btn { \
+		margin-bottom: -8px; \
+	} \
+	#fork_btn.disabled { \
+		opacity: 0.4; \
+	} \
+	.fork-load { \
 		display: inline-block; \
-		margin-left: 10px; \
-		line-height: 0; \
+		width: 16px; \
+		height: 16px; \
+		margin: -5px 5px; \
+		background: url("http://img3.douban.com/pics/loading.gif"); \
 	}'
 )
 
+
+/**/
 // Selector
 function $(select) {
 	var name = select.substring(1);
@@ -61,77 +73,163 @@ function implodeUrlArgs(obj) {
 	return a.join('&');
 }
 
-// 获取不断变化的ck值
-function getCK() {
+// Loadings tip
+var loading = {
+	show: function() {
+		var fork_btn = $('#fork_btn');
+		var load_tip = document.createElement('div');
+		load_tip.className = 'fork-load';
+		insertBefore(load_tip, fork_btn);
+	},
+	hide: function() {
+		var load_tip = xpath('//div[@class="fork-load"]').snapshotItem(0);
+		load_tip.style.display = 'none';
+	}
+}
+
+
+function insertBefore(dom, target) {
+	target.parentNode.insertBefore(dom, target);
+}
+
+function getCookie(c_name) {
+	if (document.cookie.length > 0){
+		c_start = document.cookie.indexOf(c_name + '=');
+		if (c_start!=-1){ 
+			c_start = c_start + c_name.length + 1;
+			c_end = document.cookie.indexOf(';',c_start);
+			if (c_end == -1){ c_end = document.cookie.length;}
+			return unescape(document.cookie.substring(c_start,c_end));
+		}
+	}
+	return '';
+}
+
+
+/* 快速添加豆列 */
+function getDoulist(url) {
 
 	GM_xmlhttpRequest({
+		url: url,
 		method: 'GET',
-		url: 'http://movie.douban.com/doulist/new?cat=1002', 
 		headers: {
 			'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-			'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0',
+			'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0'
 		},
 		onload: function(result) {
-			//貌似是因为页面带有javascript无法解析,必须盛放在DOM中
 			var cont = document.createElement('div');
 			cont.innerHTML = result.responseText;
-			ck = xpath( "//input[@name='ck']", cont ).snapshotItem(0).value;
-			GM_setValue( 'doulist_ck', ck );
-			// fork();
-		},
-		onerror: function(err) {
-			console.log(err);
+			var dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
+			var dl_all = [];
+			for(var i = 0; i < dl_wrap.snapshotLength; i++) {
+				var data = {
+					name: dl_wrap.snapshotItem(i).textContent,
+					link: dl_wrap.snapshotItem(i).href
+				}
+				dl_all.push(data);
+			}
+			showDoulist();
+			console.log(dl_all);
 		}
 	});
 }
 
+function showDoulist() {
+
+}
+
+function quickAdd() {
+	var btn_ul = $('.ul_subject_menu')[0];
+	var btn_add = btn_ul.childNodes[6].previousSibling.lastChild; 
+
+	btn_add.addEventListener('mouseover', function(e){
+
+		getDoulist(e.target.href);
+
+	}, false);
+	console.log(btn_add);
+}
+
+quickAdd();
+
+/* Fork */
 function fork() {
 
 	var rec = $('.rec')[0]; 
-	var fork_btn = document.createElement('span');
+	var fork_btn = document.createElement('a');
 	fork_btn.id = 'fork_btn';
-	fork_btn.innerHTML = '<a class="">Fork</a>';
+	fork_btn.className = 'redbutt';
+	fork_btn.href = 'javascript:;'
+	fork_btn.innerHTML = '<span>Fork</span>';
 	rec.parentNode.insertBefore(fork_btn, rec);
 
 	var fork = $('#fork_btn');
 	$('#fork_btn').addEventListener('click', function(e) {
+		var target = e.target.parentNode;
+		if( target.getAttribute('class').indexOf('disabled') !== -1 ) {
+			alert('disabled');
+			return;	
+		}else{
 
-		getCK();
-		createNewDoulist();
+			target.setAttribute('class', target.getAttribute('class')+' disabled');
+			var ck = getCookie('ck');
+			GM_setValue('ck', ck);
+			loading.show();
+			// createNewDoulist();
+		}
 	}, false);
 }
 
 function createNewDoulist() {
 
-	var ck = GM_getValue( 'doulist_ck', null ),
-		dl_about = $('.indent')[0].textContent,
-		dl_title = $(' h1')[0].textContent,
-		this_doulist = window.location.href;
+	var ck = GM_getValue( 'ck', null);
+	if( ck === null ) {
+		return;
+	}else{
+		var	dl_about = $('.indent')[0].textContent,
+			dl_title = $(' h1')[0].textContent,
+			this_doulist = window.location.href;
 
-	GM_xmlhttpRequest({
-		method: 'POST',
-		url: 'http://movie.douban.com/doulist/new?cat=1002',
-		headers: {
-			'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-			'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0',
-			'Content-type':'application/x-www-form-urlencoded',
-		},
-		data: implodeUrlArgs({
-			"ck": ck,
-			"dl_about": dl_about,
-			"dl_submit": "创建电影豆列",
-			"dl_title": dl_title+' (fork form '+ this_doulist + ')'
-		}),
-		onload: function(result) {
-			var fork_id = result.finalUrl.replace('http://movie.douban.com/doulist/','').replace('/','');
-			collectSubjects( fork_id );
-			alert('created')
-		},
-		onerror: function(err) {
-			alert(err)
-			console.log(err);
-		}
-	});
+		GM_xmlhttpRequest({
+			method: 'POST',
+			url: 'http://movie.douban.com/doulist/new?cat=1002',
+			headers: {
+				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0',
+				'Content-type':'application/x-www-form-urlencoded',
+			},
+			data: implodeUrlArgs({
+				"ck": ck,
+				"dl_about": dl_about+'<br>forked from<a href="'+this_doulist+'">'+dl_title+'</a>',
+				"dl_submit": "创建电影豆列",
+				"dl_title": '(forked)'+dl_title
+			}),
+			onload: function(result) {
+				var fork_id = result.finalUrl.replace('http://movie.douban.com/doulist/','').replace('/','');
+				collectSubjects( fork_id );
+				storeForked(fork_id);
+				alert('created')
+			},
+			onerror: function(err) {
+				alert(err)
+				console.log(err);
+			}
+		});
+	}
+}
+
+
+// 存储已经fork的豆列
+function storeForked(fork_id) {
+	var dl = [];
+	var forked_doulist = GM_getValue('focked_doulist', null);
+	if( forked_doulist === null ) {
+		dl.push(fork_id);
+	}else{
+		dl = forked_doulist.split(',');
+		dl.push(fork_id);
+	}
+	GM_setValue('forked_doulist', dl.toString())	
 }
 
 // 收集豆列中的所有item
@@ -181,7 +279,6 @@ function collectSubjects(fork_id) {
 	}
 }
 
-// TODO
 // 如果豆列少于五部电影会无法提交成功 貌似最少也要提交5个subject
 // 最简单的解决办法是为每个豆列都加一个空subject的字符串tail
 // 为豆列添加item
@@ -204,6 +301,7 @@ function addSubjects(id, items){
 		}, 
 		data: 'ck='+GM_getValue('doulist_ck')+'&'+new_item.join( '&' )+tail,
 		onload: function(result) {
+			loading.hide();
 			console.log('ck='+GM_getValue('doulist_ck')+'&'+new_item.join( '&' ))
 			alert('done')
 		}
@@ -211,4 +309,6 @@ function addSubjects(id, items){
 
 }
 
-fork();
+if( window.location.href.indexOf('doulist') !== -1 ) {
+	fork();
+}
