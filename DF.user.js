@@ -16,12 +16,34 @@
 // TODO
 // 1. 为fork按钮添加样式 done
 // 2. fork增加process提示 done
-// 3. 在电影页面增加快速添加到豆列功能
+// 3. 在电影页面增加快速添加到豆列功能 done
 // 4. 自己的豆列不能fork，已经fork的豆列不能fork
 // 5. userscript include 页面
 // 6. 给fork from 添加链接 done
 // 7. 存储已fork的豆列
 
+
+//
+var DL = {
+
+	create_url: {
+		movie: 'http://movie.douban.com/doulist/new?cat=1002',
+		music: '',
+		book: '',
+		note: '',
+		subject: '' 
+	},
+	getType: function() {
+		var url = window.location.href;
+		if( url.indexOf('movie') !== -1 ) {
+			return 'movie' 
+		}
+	}
+}
+
+var utils = {
+
+}
 
 
 /* Style */
@@ -38,11 +60,27 @@ GM_addStyle('#fork_btn { \
 		height: 16px; \
 		margin: -5px 5px; \
 		background: url("http://img3.douban.com/pics/loading.gif"); \
+	} \
+	#dl_wrap { \
+		position: absolute; \
+		width: 200px; \
+		background-color: #eeeeee; \
+		padding: 3px; \
+	} \
+	#dl_wrap li { \
+		display: block; \
+	    float: none; \
+	    font-size: 13px; \
+	    margin: 0; \
+	} \
+	#dl_wrap a { \
+		display: block; \
+		padding: 5px; \
 	}'
 )
 
 
-/**/
+/* Common */
 // Selector
 function $(select) {
 	var name = select.substring(1);
@@ -64,7 +102,7 @@ function xpath(query, context) {
 };
 
 
-// Object to MetaData for post a form
+// Object to MetaData
 function implodeUrlArgs(obj) {
 	var a = [];
 	for ( var k in obj ) {
@@ -92,6 +130,14 @@ function insertBefore(dom, target) {
 	target.parentNode.insertBefore(dom, target);
 }
 
+function insertAfter(dom, target) {
+	if( target.previousSibling.length > 0 ) {
+		insertBefore(dom, target.nextSibling);
+	}else{
+		target.parentNode.appendChild(dom);	
+	}
+}
+
 function getCookie(c_name) {
 	if (document.cookie.length > 0){
 		c_start = document.cookie.indexOf(c_name + '=');
@@ -109,48 +155,69 @@ function getCookie(c_name) {
 /* 快速添加豆列 */
 function getDoulist(url) {
 
-	GM_xmlhttpRequest({
-		url: url,
-		method: 'GET',
-		headers: {
-			'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-			'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0'
-		},
-		onload: function(result) {
-			var cont = document.createElement('div');
-			cont.innerHTML = result.responseText;
-			var dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
-			var dl_all = [];
-			for(var i = 0; i < dl_wrap.snapshotLength; i++) {
-				var data = {
-					name: dl_wrap.snapshotItem(i).textContent,
-					link: dl_wrap.snapshotItem(i).href
+	var dl_wrap = $('#dl_wrap');
+	if( dl_wrap !== null ) {
+		dl_wrap.style.display = 'block';
+	}else{
+		GM_xmlhttpRequest({
+			url: url,
+			method: 'GET',
+			headers: {
+				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0'
+			},
+			onload: function(result) {
+				var cont = document.createElement('div');
+				cont.innerHTML = result.responseText;
+				var dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
+				var dl_all = [];
+				for(var i = 0; i < dl_wrap.snapshotLength; i++) {
+					var data = {
+						name: dl_wrap.snapshotItem(i).textContent,
+						link: dl_wrap.snapshotItem(i).href
+					}
+					dl_all.push(data);
 				}
-				dl_all.push(data);
+				showDoulist(dl_all);
 			}
-			showDoulist();
-			console.log(dl_all);
-		}
-	});
+		});
+	}
 }
 
-function showDoulist() {
+function showDoulist(dl_all) {
 
+	var ul = document.createElement('ul');
+	ul.id = 'dl_wrap';
+	for( var i = 0; i < dl_all.length; i++ ) {
+		var li = document.createElement('li');
+		var a = document.createElement('a');
+		a.href = dl_all[i].link;
+		a.textContent = dl_all[i].name;
+		li.appendChild(a);
+		ul.appendChild(li);
+	}
+	var btn_ul = $('.ul_subject_menu')[0];
+	var btn_add = btn_ul.childNodes[6].previousSibling;
+	btn_add.appendChild(ul);
 }
 
 function quickAdd() {
 	var btn_ul = $('.ul_subject_menu')[0];
 	var btn_add = btn_ul.childNodes[6].previousSibling.lastChild; 
+	var link = btn_add.href;
+	btn_add.parentNode.addEventListener('mouseover', function(e){
 
-	btn_add.addEventListener('mouseover', function(e){
-
-		getDoulist(e.target.href);
+		getDoulist(link);
 
 	}, false);
+
+	btn_add.parentNode.addEventListener('mouseout', function(e){
+		$('#dl_wrap').style.display = 'none';
+	});
+
 	console.log(btn_add);
 }
 
-quickAdd();
 
 /* Fork */
 function fork() {
@@ -312,3 +379,5 @@ function addSubjects(id, items){
 if( window.location.href.indexOf('doulist') !== -1 ) {
 	fork();
 }
+
+// quickAdd();
