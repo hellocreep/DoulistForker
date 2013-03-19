@@ -3,6 +3,10 @@
 // @namespace   test
 // @include     http://movie.douban.com/doulist/*
 // @include     http://movie.douban.com/subject/*
+// @include     http://music.douban.com/doulist/*
+// @include     http://music.douban.com/subject/*
+// @include     http://book.douban.com/doulist/*
+// @include     http://book.douban.com/subject/*
 // @version     1
 // @grant GM_getValue
 // @grant GM_setValue
@@ -26,17 +30,35 @@
 //
 var DL = {
 
-	create_url: {
-		movie: 'http://movie.douban.com/doulist/new?cat=1002',
-		music: '',
-		book: '',
-		note: '',
-		subject: '' 
+	movie: {
+		name: 'movie',
+		dl_submit: '创建电影豆列',
+		create_url: 'http://movie.douban.com/doulist/new?cat=1002',
+		doulist_url: 'http://movie.douban.com/doulist/'
+	},
+	music: {
+		name: 'music',
+		dl_submit: '创建音乐豆列',
+		create_url: 'http://music.douban.com/doulist/new?cat=1003',
+		doulist_url: 'http://music.douban.com/doulist/'
+	},
+	book: {
+		name: 'book',
+		dl_submit: '创建图书豆列',
+		create_url: 'http://book.douban.com/doulist/new?cat=1001',
+		doulist_url: 'http://book.douban.com/doulist/'
 	},
 	getType: function() {
+		// 舞台剧日记等并没有独立二级域名，要重新想办法获取类型
 		var url = window.location.href;
-		if( url.indexOf('movie') !== -1 ) {
-			return 'movie' 
+		var type = url.substring(7, url.indexOf('.'));
+		switch(type) {
+			case 'movie':
+				return DL.movie;
+			case 'music':
+				return DL.music;
+			case 'book':
+				return DL.book;
 		}
 	}
 }
@@ -106,8 +128,9 @@ function xpath(query, context) {
 function implodeUrlArgs(obj) {
 	var a = [];
 	for ( var k in obj ) {
-		a.push( k +'='+ encodeURIComponent(obj[k]) );
+		a.push( k +'='+ encodeURI( obj[k]) );
 	}
+	console.log(a)
 	return a.join('&');
 }
 
@@ -145,7 +168,8 @@ function getCookie(c_name) {
 			c_start = c_start + c_name.length + 1;
 			c_end = document.cookie.indexOf(';',c_start);
 			if (c_end == -1){ c_end = document.cookie.length;}
-			return unescape(document.cookie.substring(c_start,c_end));
+			// 去掉双引号
+			return unescape(document.cookie.substring(c_start,c_end).replace(/(^\"*)|(\"*$)/g, ""));
 		}
 	}
 	return '';
@@ -239,43 +263,46 @@ function fork() {
 		}else{
 
 			target.setAttribute('class', target.getAttribute('class')+' disabled');
-			var ck = getCookie('ck');
-			GM_setValue('ck', ck);
+			// var ck = getCookie('ck');
+			// GM_setValue('ck', ck);
 			loading.show();
-			// createNewDoulist();
+
+			createNewDoulist();
 		}
 	}, false);
 }
 
 function createNewDoulist() {
 
-	var ck = GM_getValue( 'ck', null);
+	var ck = getCookie('ck');
 	if( ck === null ) {
 		return;
-	}else{
+	} else {
 		var	dl_about = $('.indent')[0].textContent,
 			dl_title = $(' h1')[0].textContent,
 			this_doulist = window.location.href;
 
 		GM_xmlhttpRequest({
 			method: 'POST',
-			url: 'http://movie.douban.com/doulist/new?cat=1002',
+			url: DL_type.create_url,
 			headers: {
 				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-				'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0',
-				'Content-type':'application/x-www-form-urlencoded',
+				'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:19.0) Gecko/20100101 Firefox/19.0',
+				'Content-type':'application/x-www-form-urlencoded'
 			},
 			data: implodeUrlArgs({
 				"ck": ck,
-				"dl_about": dl_about+'<br>forked from<a href="'+this_doulist+'">'+dl_title+'</a>',
-				"dl_submit": "创建电影豆列",
-				"dl_title": '(forked)'+dl_title
+				"dl_about": dl_about,
+				"dl_submit": DL_type.dl_submit,
+				"dl_title": dl_title+' (forked from '+this_doulist+')'
 			}),
 			onload: function(result) {
-				var fork_id = result.finalUrl.replace('http://movie.douban.com/doulist/','').replace('/','');
-				collectSubjects( fork_id );
-				storeForked(fork_id);
+				console.log(result);
+				var fork_id = result.finalUrl.replace(DL_type.doulist_url,'').replace('/','');
 				alert('created')
+				alert(fork_id)
+				collectSubjects( fork_id );
+				// storeForked(fork_id);
 			},
 			onerror: function(err) {
 				alert(err)
@@ -307,7 +334,13 @@ function collectSubjects(fork_id) {
 
 	// first page
 	for(var i = 0; i < item_wrap.length; i++) {
-		items.push( item_wrap[i].firstChild.childNodes[1].href );
+		// 改用XPATH
+		if( DL_type.name === 'book' ) {
+			items.push( item_wrap[i].childNodes[1].childNodes[1].href );
+		}else{
+			items.push( item_wrap[i].firstChild.childNodes[1].href );
+		}
+		
 	}
 
 	if( $('.paginator')[0] !== undefined ) {
@@ -342,6 +375,7 @@ function collectSubjects(fork_id) {
 		}
 	}else{
 		alert('collected');
+		console.log(items)
 		addSubjects( fork_id, items );	
 	}
 }
@@ -350,7 +384,8 @@ function collectSubjects(fork_id) {
 // 最简单的解决办法是为每个豆列都加一个空subject的字符串tail
 // 为豆列添加item
 function addSubjects(id, items){
-	var add_url = 'http://movie.douban.com/doulist/'+id+'/add_multi';
+	var add_url = DL_type.doulist_url+id+'/add_multi';
+	alert(add_url)
 	var new_item = [];
 	for(var i = 0; i < items.length; i++ ) {
 		var k = 'subject=' + encodeURIComponent( items[i] );
@@ -366,10 +401,10 @@ function addSubjects(id, items){
 			'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0',
 			'Content-type':'application/x-www-form-urlencoded',
 		}, 
-		data: 'ck='+GM_getValue('doulist_ck')+'&'+new_item.join( '&' )+tail,
+		data: 'ck='+getCookie('ck')+'&'+new_item.join( '&' )+tail,
 		onload: function(result) {
 			loading.hide();
-			console.log('ck='+GM_getValue('doulist_ck')+'&'+new_item.join( '&' ))
+			console.log('ck='+getCookie('ck')+'&'+new_item.join( '&' ))
 			alert('done')
 		}
 	});
@@ -377,7 +412,9 @@ function addSubjects(id, items){
 }
 
 if( window.location.href.indexOf('doulist') !== -1 ) {
+	DL_type = DL.getType();
+	console.log(DL_type);
 	fork();
+}else {
+	quickAdd();
 }
-
-// quickAdd();
