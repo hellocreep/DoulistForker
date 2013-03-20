@@ -7,6 +7,10 @@
 // @include     http://music.douban.com/subject/*
 // @include     http://book.douban.com/doulist/*
 // @include     http://book.douban.com/subject/*
+// @include     http://www.douban.com/doulist/*
+// @include     http://www.douban.com/subject/*
+// @include		http://www.douban.com/photos/album/*
+// @include		http://www.douban.com/note/*
 // @version     1
 // @grant GM_getValue
 // @grant GM_setValue
@@ -22,44 +26,6 @@
 // 快速添加到豆列dialog
 // 日记相册东西等的fork和快速添加
 
-
-/* Doulist info */
-var DL = {
-
-	movie: {
-		name: 'movie',
-		dl_submit: '创建电影豆列',
-		create_url: 'http://movie.douban.com/doulist/new?cat=1002',
-		doulist_url: 'http://movie.douban.com/doulist/'
-	},
-	music: {
-		name: 'music',
-		dl_submit: '创建音乐豆列',
-		create_url: 'http://music.douban.com/doulist/new?cat=1003',
-		doulist_url: 'http://music.douban.com/doulist/'
-	},
-	book: {
-		name: 'book',
-		dl_submit: '创建图书豆列',
-		create_url: 'http://book.douban.com/doulist/new?cat=1001',
-		doulist_url: 'http://book.douban.com/doulist/'
-	},
-	getType: function() {
-		// 舞台剧日记等并没有独立二级域名，要重新想办法获取类型
-		var url = window.location.href;
-		var type = url.substring(7, url.indexOf('.'));
-		switch(type) {
-			case 'movie':
-				return DL.movie;
-			case 'music':
-				return DL.music;
-			case 'book':
-				return DL.book;
-		}
-	}
-}
-
-var href = window.location.href;
 
 /* Style */
 
@@ -181,12 +147,92 @@ function getCookie(c_name) {
 }
 
 
+/* Doulist info */
+var href = window.location.href;
+
+var DL = {
+
+	movie: {
+		name: 'movie',
+		dl_submit: '创建电影豆列',
+		create_url: 'http://movie.douban.com/doulist/new?cat=1002',
+		doulist_url: 'http://movie.douban.com/doulist/',
+		key: '1002'
+	},
+	music: {
+		name: 'music',
+		dl_submit: '创建音乐豆列',
+		create_url: 'http://music.douban.com/doulist/new?cat=1003',
+		doulist_url: 'http://music.douban.com/doulist/',
+		key: '1003'
+	},
+	book: {
+		name: 'book',
+		dl_submit: '创建图书豆列',
+		create_url: 'http://book.douban.com/doulist/new?cat=1001',
+		doulist_url: 'http://book.douban.com/doulist/',
+		key: '1001'
+	},
+	thing: {
+		name: 'thing',
+		dl_submit: '创建东西豆列',
+		create_url: 'http://www.douban.com/doulist/new?cat=3065',
+		doulist_url: 'http://www.douban.com/doulist/',
+		key: '3065'
+	},
+	album: {
+		name: 'album',
+		dl_submit: '创建相册豆列',
+		create_url: 'http://www.douban.com/doulist/new?cat=1026',
+		doulist_url: 'http://www.douban.com/doulist/',
+		key: '1026'
+	},
+	note: {
+		name: 'note',
+		dl_submit: '创建日记豆列',
+		create_url: 'http://www.douban.com/doulist/new?cat=1015',
+		doulist_url: 'http://www.douban.com/doulist/',
+		key: '1015'
+	},
+	getType: function() {
+		// 舞台剧日记等并没有独立二级域名，要重新想办法获取类型
+		// var type = href.substring(7, url.indexOf('.'));
+		var type = xpath('//a[contains(@href,"/doulist/new?cat=")]').snapshotItem(0).href;
+		if( href.indexOf('movie') !== -1 ){
+			return DL.movie;
+		}
+		if( href.indexOf('music') !== -1 ){
+			return DL.music;
+		}
+		if( href.indexOf('book') !== -1 ){
+			return DL.book;
+		}
+		if( type.indexOf('3065') !== -1 ){
+			return DL.thing;
+		}
+		if( type.indexOf('1026') !== -1 ){
+			return DL.album;
+		}
+		if( href.indexOf('note') !== -1 ){
+			return DL.note;
+		}
+		// switch(type) {
+		// 	case 'movie':
+		// 		return DL.movie;
+		// 	case 'music':
+		// 		return DL.music;
+		// 	case 'book':
+		// 		return DL.book;
+		// }
+	}
+}
+
 /* 快速添加豆列 */
 function getDoulist(url) {
 
-	var dl_wrap = $('#dl_wrap');
-	if( dl_wrap !== null ) {
-		dl_wrap.style.display = 'block';
+	var ul = $('#dl_wrap');
+	if( ul !== null ) {
+		ul.style.display = 'block';
 	}else{
 		GM_xmlhttpRequest({
 			url: url,
@@ -197,8 +243,14 @@ function getDoulist(url) {
 			},
 			onload: function(result) {
 				var cont = document.createElement('div');
+				var dl_wrap;
 				cont.innerHTML = result.responseText;
-				var dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
+				if( DL.name == 'movie' || DL.name == 'book' || DL.name == 'music' ) {
+					dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
+				}else{
+					dl_wrap = xpath('//a[contains(@href,"cat_id")]', cont);
+				}
+				
 				var dl_all = [];
 				for(var i = 0; i < dl_wrap.snapshotLength; i++) {
 					var data = {
@@ -207,6 +259,7 @@ function getDoulist(url) {
 					}
 					dl_all.push(data);
 				}
+				console.log(dl_all)
 				showDoulist(dl_all);
 			}
 		});
@@ -232,9 +285,28 @@ function showDoulist(dl_all) {
 	}
 	var btn_add = xpath('//a[contains(@href,"doulists?add")]').snapshotItem(0);
 	btn_add.appendChild(ul);
+
+	// hide doulist
+	btn_add.parentNode.addEventListener('mouseout', function(e){
+		$('#dl_wrap').style.display = 'none';
+	},false);
 }
 
 function quickAdd() {
+
+	// 将包裹的DIV的overflow去掉，否则豆列无法显示
+	var thing_tag1 = $( '.item-subject' ),
+		thing_tag2 = $( '.thing-rec' ),
+		album_tag = $( '.sns-bar' );
+	if( thing_tag1.length > 0 && thing_tag2.length > 0 ) {
+		thing_tag1[0].style.overflow = 'visible';
+		thing_tag2[0].style.overflow = 'visible';
+	}
+	if( album_tag.length > 0 ) {
+		album_tag[0].style.overflow = 'visible';
+	}
+
+
 	var btn_add = xpath('//a[contains(@href,"doulists?add")]').snapshotItem(0);
 	btn_add.style.position = 'relative';
 	var link = btn_add.href;
@@ -243,10 +315,6 @@ function quickAdd() {
 		getDoulist(link);
 
 	}, false);
-
-	btn_add.parentNode.addEventListener('mouseout', function(e){
-		$('#dl_wrap').style.display = 'none';
-	});
 
 	console.log(btn_add);
 }
@@ -334,6 +402,8 @@ function storeForked(fork_id) {
 }
 
 // 收集豆列中的所有item
+// TODO
+// 相册收集出错
 function collectSubjects(fork_id) {
 	var item_wrap = $( '.doulist_item' );
 	var items = [];
