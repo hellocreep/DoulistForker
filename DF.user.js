@@ -18,16 +18,12 @@
 // ==/UserScript==
 
 // TODO
-// 1. 为fork按钮添加样式 done
-// 2. fork增加process提示 done
-// 3. 在电影页面增加快速添加到豆列功能 done
-// 4. 自己的豆列不能fork，已经fork的豆列不能fork
-// 5. userscript include 页面
-// 6. 给fork from 添加链接 done
-// 7. 存储已fork的豆列
+// 储存已fork的豆列，forked豆列不能再次forked
+// 快速添加到豆列dialog
+// 日记相册东西等的fork和快速添加
 
 
-//
+/* Doulist info */
 var DL = {
 
 	movie: {
@@ -63,10 +59,7 @@ var DL = {
 	}
 }
 
-var utils = {
-
-}
-
+var href = window.location.href;
 
 /* Style */
 
@@ -85,25 +78,36 @@ GM_addStyle('#fork_btn { \
 	} \
 	#dl_wrap { \
 		position: absolute; \
-		width: 200px; \
-		background-color: #eeeeee; \
+		width: 300px; \
+		background-color: #FFFFFF; \
 		padding: 3px; \
+		border: 1px solid rgba(0, 0, 0, 0.2); \
+		border-radius: 6px; \
+		box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); \
 	} \
 	#dl_wrap li { \
 		display: block; \
 	    float: none; \
-	    font-size: 13px; \
 	    margin: 0; \
 	} \
 	#dl_wrap a { \
 		display: block; \
-		padding: 5px; \
+		padding: 5px 20px;\
+		color: #333333; \
+		line-height: 18px; \
+		font-size: 13px; \
+	} \
+	#dl_wrap a:hover { \
+		background-color: #0081c2; \
+		background-image: linear-gradient(to bottom, #009129, #00c438); \
+		color: #FFFFFF; \
 	}'
-)
+);
 
 
-/* Common */
-// Selector
+/* Utils */
+
+/* Selector */
 function $(select) {
 	var name = select.substring(1);
 		switch(select.charAt(0)) {
@@ -118,13 +122,13 @@ function $(select) {
 		}
 }
 
-// Xpath
+/* Xpath */
 function xpath(query, context) {
 	return document.evaluate(context?(query.indexOf('.')==0?query:'.' + query):query, context || document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
 };
 
 
-// Object to MetaData
+/* Object to MetaData */
 function implodeUrlArgs(obj) {
 	var a = [];
 	for ( var k in obj ) {
@@ -134,7 +138,7 @@ function implodeUrlArgs(obj) {
 	return a.join('&');
 }
 
-// Loadings tip
+/* Loadings tip */
 var loading = {
 	show: function() {
 		var fork_btn = $('#fork_btn');
@@ -148,7 +152,7 @@ var loading = {
 	}
 }
 
-
+/* Append */
 function insertBefore(dom, target) {
 	target.parentNode.insertBefore(dom, target);
 }
@@ -161,6 +165,7 @@ function insertAfter(dom, target) {
 	}
 }
 
+/* Cookies */
 function getCookie(c_name) {
 	if (document.cookie.length > 0){
 		c_start = document.cookie.indexOf(c_name + '=');
@@ -217,17 +222,21 @@ function showDoulist(dl_all) {
 		var a = document.createElement('a');
 		a.href = dl_all[i].link;
 		a.textContent = dl_all[i].name;
+		a.addEventListener('click', function(e){
+			// TODO
+			// dialog
+			// e.preventDefault();
+		},false);
 		li.appendChild(a);
 		ul.appendChild(li);
 	}
-	var btn_ul = $('.ul_subject_menu')[0];
-	var btn_add = btn_ul.childNodes[6].previousSibling;
+	var btn_add = xpath('//a[contains(@href,"doulists?add")]').snapshotItem(0);
 	btn_add.appendChild(ul);
 }
 
 function quickAdd() {
-	var btn_ul = $('.ul_subject_menu')[0];
-	var btn_add = btn_ul.childNodes[6].previousSibling.lastChild; 
+	var btn_add = xpath('//a[contains(@href,"doulists?add")]').snapshotItem(0);
+	btn_add.style.position = 'relative';
 	var link = btn_add.href;
 	btn_add.parentNode.addEventListener('mouseover', function(e){
 
@@ -263,8 +272,6 @@ function fork() {
 		}else{
 
 			target.setAttribute('class', target.getAttribute('class')+' disabled');
-			// var ck = getCookie('ck');
-			// GM_setValue('ck', ck);
 			loading.show();
 
 			createNewDoulist();
@@ -334,13 +341,7 @@ function collectSubjects(fork_id) {
 
 	// first page
 	for(var i = 0; i < item_wrap.length; i++) {
-		// 改用XPATH
-		if( DL_type.name === 'book' ) {
-			items.push( item_wrap[i].childNodes[1].childNodes[1].href );
-		}else{
-			items.push( item_wrap[i].firstChild.childNodes[1].href );
-		}
-		
+		items.push( xpath( '//tr[@class="doulist_item"]/td/a' ).snapshotItem(i) );
 	}
 
 	if( $('.paginator')[0] !== undefined ) {
@@ -411,10 +412,12 @@ function addSubjects(id, items){
 
 }
 
-if( window.location.href.indexOf('doulist') !== -1 ) {
+/* RUN */
+
+if( href.indexOf('doulist') !== -1 ) {
 	DL_type = DL.getType();
 	console.log(DL_type);
 	fork();
-}else {
+} else {
 	quickAdd();
 }
