@@ -416,11 +416,19 @@ function collectSubjects(fork_id) {
 	var item_wrap = $( '.doulist_item' );
 	var items = [];
 	var links = [];
-
-	// first page
-	for(var i = 0; i < item_wrap.length; i++) {
-		items.push( xpath( '//tr[@class="doulist_item"]/td/a' ).snapshotItem(i).href );
+	
+	// first page	
+	if( DL_type.name == 'note' || DL_type == 'album' ) {
+		for(var i = 0; i < item_wrap.length; i++) {
+			items.push( xpath( '//div[@class="title"]/a').snapshotItem(i).href );
+		}
+		
+	} else {
+		for(var i = 0; i < item_wrap.length; i++) {
+			items.push( xpath( '//tr[@class="doulist_item"]/td/a' ).snapshotItem(i).href );
+		}
 	}
+	
 
 	if( $('.paginator')[0] !== undefined ) {
 		var page = $('.paginator')[0].childNodes;
@@ -441,7 +449,13 @@ function collectSubjects(fork_id) {
 				onload: function(result) {
 					var cont = document.createElement( 'div' );
 					cont.innerHTML = result.responseText;
-					var more_item = xpath( '//tr[@class="doulist_item"]/td/a', cont );
+					var more_item;
+					if( DL_type.name == 'note' || DL_type == 'album' ) {
+						more_item = xpath( '//div[@class="title"]/a', cont );
+					} else {
+						more_item = xpath( '//tr[@class="doulist_item"]/td/a', cont );
+					}
+					
 					for(var i = 0; i < more_item.snapshotLength; i++) {
 						console.log(more_item.snapshotItem(i));
 						var item_href = more_item.snapshotItem(i).href
