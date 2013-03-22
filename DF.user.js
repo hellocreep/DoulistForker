@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name        test
-// @namespace   test
+// @name       	DoulistForker 
+// @namespace   DoulistForker
 // @include     http://movie.douban.com/doulist/*
 // @include     http://movie.douban.com/subject/*
 // @include     http://music.douban.com/doulist/*
@@ -11,7 +11,7 @@
 // @include     http://www.douban.com/subject/*
 // @include		http://www.douban.com/photos/album/*
 // @include		http://www.douban.com/note/*
-// @version     1
+// @version     0.1
 // @grant GM_getValue
 // @grant GM_setValue
 // @grant GM_addStyle
@@ -157,21 +157,24 @@ var DL = {
 		dl_submit: '创建电影豆列',
 		create_url: 'http://movie.douban.com/doulist/new?cat=1002',
 		doulist_url: 'http://movie.douban.com/doulist/',
-		key: '1002'
+		key: '1002',
+		flag: '1'
 	},
 	music: {
 		name: 'music',
 		dl_submit: '创建音乐豆列',
 		create_url: 'http://music.douban.com/doulist/new?cat=1003',
 		doulist_url: 'http://music.douban.com/doulist/',
-		key: '1003'
+		key: '1003',
+		flag: '1'
 	},
 	book: {
 		name: 'book',
 		dl_submit: '创建图书豆列',
 		create_url: 'http://book.douban.com/doulist/new?cat=1001',
 		doulist_url: 'http://book.douban.com/doulist/',
-		key: '1001'
+		key: '1001',
+		flag: '1'
 	},
 	thing: {
 		name: 'thing',
@@ -195,9 +198,19 @@ var DL = {
 		key: '1015'
 	},
 	getType: function() {
-		// 舞台剧日记等并没有独立二级域名，要重新想办法获取类型
 		// var type = href.substring(7, url.indexOf('.'));
-		var type = xpath('//a[contains(@href,"/doulist/new?cat=")]').snapshotItem(0).href;
+		// 舞台剧日记等并没有独立二级域名
+		try{
+			// var type = xpath('//a[contains(@href,"/doulist/new?cat=")]').snapshotItem(0).href;
+			var type = $( '.lnk-doulist-add' )[0].href;
+			if( type.indexOf('3065') !== -1 ){
+				return DL.thing;
+			}
+			if( type.indexOf('1026') !== -1 ){
+				return DL.album;
+			}
+		}catch(e){}
+
 		if( href.indexOf('movie') !== -1 ){
 			return DL.movie;
 		}
@@ -206,12 +219,6 @@ var DL = {
 		}
 		if( href.indexOf('book') !== -1 ){
 			return DL.book;
-		}
-		if( type.indexOf('3065') !== -1 ){
-			return DL.thing;
-		}
-		if( type.indexOf('1026') !== -1 ){
-			return DL.album;
 		}
 		if( href.indexOf('note') !== -1 ){
 			return DL.note;
@@ -245,8 +252,9 @@ function getDoulist(url) {
 				var cont = document.createElement('div');
 				var dl_wrap;
 				cont.innerHTML = result.responseText;
-				if( DL.name == 'movie' || DL.name == 'book' || DL.name == 'music' ) {
+				if( DL_type.name == 'movie' || DL_type.name == 'book' || DL_type.name == 'music' ) {
 					dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
+					// dl_wrap = xpath('//a[contains(@href,"/subject/")]', cont);
 				}else{
 					dl_wrap = xpath('//a[contains(@href,"cat_id")]', cont);
 				}
@@ -411,7 +419,7 @@ function collectSubjects(fork_id) {
 
 	// first page
 	for(var i = 0; i < item_wrap.length; i++) {
-		items.push( xpath( '//tr[@class="doulist_item"]/td/a' ).snapshotItem(i) );
+		items.push( xpath( '//tr[@class="doulist_item"]/td/a' ).snapshotItem(i).href );
 	}
 
 	if( $('.paginator')[0] !== undefined ) {
@@ -451,12 +459,11 @@ function collectSubjects(fork_id) {
 	}
 }
 
-// 如果豆列少于五部电影会无法提交成功 貌似最少也要提交5个subject
+// 如果豆列少于五部电影会无法提交成功 最少也要提交5个subject
 // 最简单的解决办法是为每个豆列都加一个空subject的字符串tail
 // 为豆列添加item
 function addSubjects(id, items){
 	var add_url = DL_type.doulist_url+id+'/add_multi';
-	alert(add_url)
 	var new_item = [];
 	for(var i = 0; i < items.length; i++ ) {
 		var k = 'subject=' + encodeURIComponent( items[i] );
@@ -484,10 +491,12 @@ function addSubjects(id, items){
 
 /* RUN */
 
+DL_type = DL.getType();
+
 if( href.indexOf('doulist') !== -1 ) {
-	DL_type = DL.getType();
 	console.log(DL_type);
 	fork();
 } else {
+	console.log(DL_type);
 	quickAdd();
 }
