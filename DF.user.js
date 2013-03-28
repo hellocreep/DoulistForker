@@ -2,16 +2,10 @@
 // @name       	DoulistForker 
 // @namespace   DoulistForker
 // @include     http://movie.douban.com/doulist/*
-// @include     http://movie.douban.com/subject/*
 // @include     http://music.douban.com/doulist/*
-// @include     http://music.douban.com/subject/*
 // @include     http://book.douban.com/doulist/*
-// @include     http://book.douban.com/subject/*
 // @include     http://www.douban.com/doulist/*
-// @include     http://www.douban.com/subject/*
-// @include		http://www.douban.com/photos/album/*
-// @include		http://www.douban.com/note/*
-// @version     0.1
+// @version     1
 // @grant GM_getValue
 // @grant GM_setValue
 // @grant GM_addStyle
@@ -41,32 +35,6 @@ GM_addStyle('#fork_btn { \
 		height: 16px; \
 		margin: -5px 5px; \
 		background: url("http://img3.douban.com/pics/loading.gif"); \
-	} \
-	#dl_wrap { \
-		position: absolute; \
-		width: 300px; \
-		background-color: #FFFFFF; \
-		padding: 3px; \
-		border: 1px solid rgba(0, 0, 0, 0.2); \
-		border-radius: 6px; \
-		box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); \
-	} \
-	#dl_wrap li { \
-		display: block; \
-	    float: none; \
-	    margin: 0; \
-	} \
-	#dl_wrap a { \
-		display: block; \
-		padding: 5px 20px;\
-		color: #333333; \
-		line-height: 18px; \
-		font-size: 13px; \
-	} \
-	#dl_wrap a:hover { \
-		background-color: #0081c2; \
-		background-image: linear-gradient(to bottom, #009129, #00c438); \
-		color: #FFFFFF; \
 	}'
 );
 
@@ -118,6 +86,13 @@ var loading = {
 	}
 }
 
+/* CSS */
+function addCss(dom, css) {
+	for( var i in css ) {
+		dom.style[i] = css[i];
+	}
+}
+
 /* Append */
 function insertBefore(dom, target) {
 	target.parentNode.insertBefore(dom, target);
@@ -145,7 +120,6 @@ function getCookie(c_name) {
 	}
 	return '';
 }
-
 
 /* Doulist info */
 var href = window.location.href;
@@ -234,100 +208,6 @@ var DL = {
 	}
 }
 
-/* 快速添加豆列 */
-function getDoulist(url) {
-
-	var ul = $('#dl_wrap');
-	if( ul !== null ) {
-		ul.style.display = 'block';
-	}else{
-		GM_xmlhttpRequest({
-			url: url,
-			method: 'GET',
-			headers: {
-				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-				'User-Agent':'Mozilla/5.0 (Windows NT 6.1; rv:17.0) Gecko/20100101 Firefox/17.0'
-			},
-			onload: function(result) {
-				var cont = document.createElement('div');
-				var dl_wrap;
-				cont.innerHTML = result.responseText;
-				if( DL_type.name == 'movie' || DL_type.name == 'book' || DL_type.name == 'music' ) {
-					dl_wrap = xpath('//table[@class="list-b"]/tbody/tr/td/a', cont);
-					// dl_wrap = xpath('//a[contains(@href,"/subject/")]', cont);
-				}else{
-					dl_wrap = xpath('//a[contains(@href,"cat_id")]', cont);
-				}
-				
-				var dl_all = [];
-				for(var i = 0; i < dl_wrap.snapshotLength; i++) {
-					var data = {
-						name: dl_wrap.snapshotItem(i).textContent,
-						link: dl_wrap.snapshotItem(i).href
-					}
-					dl_all.push(data);
-				}
-				console.log(dl_all)
-				showDoulist(dl_all);
-			}
-		});
-	}
-}
-
-function showDoulist(dl_all) {
-
-	var ul = document.createElement('ul');
-	ul.id = 'dl_wrap';
-	for( var i = 0; i < dl_all.length; i++ ) {
-		var li = document.createElement('li');
-		var a = document.createElement('a');
-		a.href = dl_all[i].link;
-		a.textContent = dl_all[i].name;
-		a.addEventListener('click', function(e){
-			// TODO
-			// dialog
-			// e.preventDefault();
-		},false);
-		li.appendChild(a);
-		ul.appendChild(li);
-	}
-	var btn_add = xpath('//a[contains(@href,"doulists?add")]').snapshotItem(0);
-	btn_add.appendChild(ul);
-
-	// hide doulist
-	btn_add.parentNode.addEventListener('mouseout', function(e){
-		$('#dl_wrap').style.display = 'none';
-	},false);
-}
-
-function quickAdd() {
-
-	// 将包裹的DIV的overflow去掉，否则豆列无法显示
-	var thing_tag1 = $( '.item-subject' ),
-		thing_tag2 = $( '.thing-rec' ),
-		album_tag = $( '.sns-bar' );
-	if( thing_tag1.length > 0 && thing_tag2.length > 0 ) {
-		thing_tag1[0].style.overflow = 'visible';
-		thing_tag2[0].style.overflow = 'visible';
-	}
-	if( album_tag.length > 0 ) {
-		album_tag[0].style.overflow = 'visible';
-	}
-
-
-	var btn_add = xpath('//a[contains(@href,"doulists?add")]').snapshotItem(0);
-	btn_add.style.position = 'relative';
-	var link = btn_add.href;
-	btn_add.parentNode.addEventListener('mouseover', function(e){
-
-		getDoulist(link);
-
-	}, false);
-
-	console.log(btn_add);
-}
-
-
 /* Fork */
 function fork() {
 
@@ -376,8 +256,9 @@ function createNewDoulist() {
 			data: implodeUrlArgs({
 				"ck": ck,
 				"dl_about": dl_about,
-				"dl_submit": DL_type.dl_submit,
-				"dl_title": dl_title+' (forked from '+this_doulist+')'
+				"dl_submit": '创建豆列',
+				"dl_title": dl_title+' (forked from '+this_doulist+')',
+				"dl_type": DL_type.key
 			}),
 			onload: function(result) {
 				console.log(result);
@@ -510,7 +391,4 @@ DL_type = DL.getType();
 if( href.indexOf('doulist') !== -1 ) {
 	console.log(DL_type);
 	fork();
-} else {
-	console.log(DL_type);
-	quickAdd();
 }
