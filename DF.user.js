@@ -15,12 +15,6 @@
 // @grant GM_registerMenuCommand
 // ==/UserScript==
 
-// TODO
-// 储存已fork的豆列，forked豆列不能再次forked
-// 快速添加到豆列dialog
-// 日记相册东西等的fork和快速添加
-
-
 /* Style */
 
 GM_addStyle('#fork_btn { \
@@ -223,7 +217,7 @@ function fork() {
 	$('#fork_btn').addEventListener('click', function(e) {
 		var target = e.target.parentNode;
 		if( target.getAttribute('class').indexOf('disabled') !== -1 ) {
-			alert('disabled');
+			console.log('disabled');
 			return;	
 		}else{
 
@@ -263,13 +257,12 @@ function createNewDoulist() {
 			onload: function(result) {
 				console.log(result);
 				var fork_id = result.finalUrl.replace(DL_type.doulist_url,'').replace('/','');
-				alert('created')
-				alert(fork_id)
+				console.log('created');
+				console.log(fork_id);
 				collectSubjects( fork_id );
 				// storeForked(fork_id);
 			},
 			onerror: function(err) {
-				alert(err)
 				console.log(err);
 			}
 		});
@@ -342,14 +335,14 @@ function collectSubjects(fork_id) {
 						var item_href = more_item.snapshotItem(i).href
 						items.push( item_href );
 					}
-					alert('collected')
+					console.log('collected');
 					addSubjects( fork_id, items );
 				}
 			});
 		}
 	}else{
-		alert('collected');
-		console.log(items)
+		console.log('collected');
+		console.log(items);
 		addSubjects( fork_id, items );	
 	}
 }
@@ -378,7 +371,7 @@ function addSubjects(id, items){
 		onload: function(result) {
 			loading.hide();
 			console.log('ck='+getCookie('ck')+'&'+new_item.join( '&' ))
-			alert('done')
+			console.log('done');
 		}
 	});
 
